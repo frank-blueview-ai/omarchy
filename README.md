@@ -4,6 +4,10 @@ Omarchy is a beautiful, fun & agentic Linux distribution by DHH.
 
 Read more at [omarchy.org](https://omarchy.org).
 
+## Blue View integration
+
+This fork includes the optional [Blue View desktop integration](contrib/blue-view/README.md), including its screensaver, settings window, taskbar controls, and per-window opacity. It has its own license; see [the integration license](contrib/blue-view/LICENSE).
+
 ## The Omarchy Manual
 
 The manual lives in [`manual/`](manual/), which is its authoritative source.

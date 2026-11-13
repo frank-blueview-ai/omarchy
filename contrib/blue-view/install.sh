@@ -1,0 +1,145 @@
+#!/bin/bash
+# Blue View OS desktop for Omarchy: glass title bars, the Blue View OS theme,
+# and the above-the-clouds screensaver.
+#
+# Copyright (c) 2026 The Blue View Group Corporation. Author: Frank Perez <frank@blueview.ai>
+# Licensed under the PolyForm Noncommercial License 1.0.0. See LICENSE.
+#
+# Usage: ./install.sh [--no-theme]
+
+set -euo pipefail
+
+SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+APPLY_THEME=1
+[[ ${1:-} == "--no-theme" ]] && APPLY_THEME=0
+
+step() { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
+backup() { [[ -e $1 ]] && cp "$1" "$1.bak.$(date +%s)"; return 0; }
+
+command -v omarchy >/dev/null || { echo "Blue View OS desktop needs Omarchy (https://omarchy.org)." >&2; exit 1; }
+for tool in jq curl git make g++ pkg-config hyprctl; do
+  command -v "$tool" >/dev/null || { echo "Missing required tool: $tool" >&2; exit 1; }
+done
+[[ -f /usr/include/hyprland/src/version.h ]] || { echo "Hyprland headers not found in /usr/include/hyprland." >&2; exit 1; }
+
+step "Installing commands"
+install -Dm755 "$SRC/bin/bvos-window-minimize" "$HOME/.local/bin/bvos-window-minimize"
+install -Dm755 "$SRC/bin/bvos-window-opacity" "$HOME/.local/bin/bvos-window-opacity"
+install -Dm755 "$SRC/bin/bvos-hyprbars-build" "$HOME/.local/bin/bvos-hyprbars-build"
+install -Dm755 "$SRC/bin/bvos-snap-build" "$HOME/.local/bin/bvos-snap-build"
+
+step "Building the title-bar plugin (hyprbars + Blue View OS button alignment)"
+install -Dm644 "$SRC/hyprbars/hyprbars-bvos.patch" "$HOME/.local/share/bvos/hyprbars-bvos.patch"
+"$HOME/.local/bin/bvos-hyprbars-build" --force
+
+step "Building the window-snapping plugin"
+install -Dm644 "$SRC/snap/main.cpp" "$HOME/.local/share/bvos/snap/main.cpp"
+install -Dm644 "$SRC/snap/Makefile" "$HOME/.local/share/bvos/snap/Makefile"
+"$HOME/.local/bin/bvos-snap-build" --force
+
+step "Configuring Hyprland window chrome"
+install -Dm644 "$SRC/hypr/bvos-windows.lua" "$HOME/.config/hypr/bvos-windows.lua"
+if ! grep -q 'require("hypr.bvos-windows")' "$HOME/.config/hypr/hyprland.lua"; then
+  backup "$HOME/.config/hypr/hyprland.lua"
+  printf '\n-- Blue View OS glass title bars and window buttons.\nrequire("hypr.bvos-windows")\n' >>"$HOME/.config/hypr/hyprland.lua"
+fi
+
+step "Installing Blue View window and bar settings"
+# FileView watches these paths for changes. Create only missing files so a
+# fresh install sees the first preference update without a shell restart.
+mkdir -p "$HOME/.local/state/bvos" "$HOME/.config/omarchy"
+if [[ ! -e $HOME/.local/state/bvos/display.json ]]; then
+  printf '{}\n' >"$HOME/.local/state/bvos/display.json"
+fi
+if [[ ! -e $HOME/.config/omarchy/shell.toml ]]; then
+  : >"$HOME/.config/omarchy/shell.toml"
+fi
+install -Dm644 "$SRC/hypr/bvos-settings.lua" "$HOME/.config/hypr/bvos-settings.lua"
+for name in bvos-appearance bvos-opacity-apps bvos-bar-glass; do
+  if [[ ! -e $HOME/.config/hypr/$name.lua ]]; then
+    printf '%s\n' "-- Blue View user settings." >"$HOME/.config/hypr/$name.lua"
+  fi
+done
+if ! grep -Fq 'require("hypr.bvos-settings")' "$HOME/.config/hypr/hyprland.lua"; then
+  backup "$HOME/.config/hypr/hyprland.lua"
+  printf '\n-- Blue View settings and appearance.\nrequire("hypr.bvos-settings")\n' >>"$HOME/.config/hypr/hyprland.lua"
+fi
+install -Dm644 "$SRC/omarchy/bar/modules/bvos-desktop.qml" "$HOME/.config/omarchy/bar/modules/bvos-desktop.qml"
+install -Dm644 "$SRC/omarchy/bar/assets/blueview-ovals.svg" "$HOME/.config/omarchy/bar/assets/blueview-ovals.svg"
+install -Dm644 "$SRC/omarchy/bar/assets/blueview-glass-polished.svg" "$HOME/.config/omarchy/bar/assets/blueview-glass-polished.svg"
+mkdir -p "$HOME/.config/omarchy/plugins/bvos.window-opacity"
+cp -r "$SRC/omarchy/plugins/bvos.window-opacity/." "$HOME/.config/omarchy/plugins/bvos.window-opacity/"
+
+step "Installing the update hooks (rebuild the plugins after Hyprland updates)"
+install -Dm755 "$SRC/hooks/post-update.d/bvos-hyprbars" "$HOME/.config/omarchy/hooks/post-update.d/bvos-hyprbars"
+install -Dm755 "$SRC/hooks/post-update.d/bvos-snap" "$HOME/.config/omarchy/hooks/post-update.d/bvos-snap"
+
+step "Installing brand fonts (Geist, Manrope, Inter)"
+fonts="$HOME/.local/share/fonts/bvos"
+mkdir -p "$fonts"
+declare -A FONT_URLS=(
+  [Geist-Variable.ttf]="https://github.com/google/fonts/raw/main/ofl/geist/Geist%5Bwght%5D.ttf"
+  [Manrope-Variable.ttf]="https://github.com/google/fonts/raw/main/ofl/manrope/Manrope%5Bwght%5D.ttf"
+  [Inter-Variable.ttf]="https://github.com/google/fonts/raw/main/ofl/inter/Inter%5Bopsz,wght%5D.ttf"
+)
+for name in "${!FONT_URLS[@]}"; do
+  [[ -s $fonts/$name ]] || curl -fsSL "${FONT_URLS[$name]}" -o "$fonts/$name" || echo "Could not download $name (the screensaver falls back to system fonts)."
+done
+fc-cache -f "$HOME/.local/share/fonts" >/dev/null 2>&1 || true
+
+step "Installing the screensaver plugin"
+plugin="$HOME/.config/omarchy/plugins/bvos.screensaver"
+mkdir -p "$plugin"
+cp -r "$SRC/omarchy/plugins/bvos.screensaver/." "$plugin/"
+chmod +x "$plugin/weather.sh" "$plugin/satellites.sh"
+rm -f "$plugin/clouds.frag"   # replaced by sky.glsl in newer versions
+if [[ -x /usr/lib/qt6/bin/qsb ]]; then
+  /usr/lib/qt6/bin/qsb --glsl "100 es,120,150" --hlsl 50 --msl 12 -DSKY_PASS -o "$plugin/sky.frag.qsb" "$plugin/sky.glsl"
+  /usr/lib/qt6/bin/qsb --glsl "100 es,120,150" --hlsl 50 --msl 12 -DCLOUD_PASS -o "$plugin/clouds.frag.qsb" "$plugin/sky.glsl"
+fi
+
+shell_json="$HOME/.config/omarchy/shell.json"
+if [[ -f $shell_json ]]; then
+  backup "$shell_json"
+  tmp=$(mktemp "${shell_json}.XXXXXX")
+  jq '
+    .plugins = ((.plugins // []) | if any(.[]; .id == "bvos.screensaver") then . else . + [{"id":"bvos.screensaver"}] end | if any(.[]; .id == "bvos.window-opacity") then . else . + [{"id":"bvos.window-opacity"}] end)
+    | .bar.layout.right = ((.bar.layout.right // []) | if any(.[]; .id == "bvos-desktop") then . else . + [{"id":"bvos-desktop", "type":"qml"}] end)
+  ' "$shell_json" >"$tmp"
+  chmod --reference="$shell_json" "$tmp"
+  mv -f "$tmp" "$shell_json"
+fi
+
+# The Blue View OS screensaver replaces Omarchy's terminal screensaver.
+omarchy-toggle screensaver-off on
+
+step "Installing the Blue View OS theme"
+mkdir -p "$HOME/.config/omarchy/themes/blue-view-os"
+cp -r "$SRC/omarchy/themes/blue-view-os/." "$HOME/.config/omarchy/themes/blue-view-os/"
+(( APPLY_THEME )) && omarchy theme set blue-view-os
+
+step "Loading everything"
+hyprctl plugin load "$HOME/.local/lib/bvos/hyprbars.so" >/dev/null 2>&1 || true
+hyprctl plugin load "$HOME/.local/lib/bvos/bvos-snap.so" >/dev/null 2>&1 || true
+hyprctl reload >/dev/null
+omarchy restart shell >/dev/null 2>&1 || true
+
+errors=$(hyprctl configerrors)
+if [[ -n ${errors// /} ]]; then
+  echo "Hyprland reported config errors:" >&2
+  echo "$errors" >&2
+  exit 1
+fi
+
+cat <<'DONE'
+
+Blue View OS desktop is installed.
+
+  Window buttons   left: minimize, maximize, float, opacity   right: close
+  Settings         click the Blue View icon in the bar
+  Minimized tray   SUPER + M
+  Snap windows     drag to an edge (half), the top (maximize) or a corner (quarter)
+  Screensaver      starts after idle.screensaver seconds (~/.config/omarchy/shell.json)
+  Live desktop     omarchy-shell bvos-screensaver desktop <on|off>
+  Preview it       omarchy-shell bvos-screensaver preview live now
+DONE
