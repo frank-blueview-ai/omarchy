@@ -1,0 +1,51 @@
+Blue View OS Desktop
+Copyright (c) 2026 The Blue View Group Corporation (https://blueview.ai)
+Author: Frank Perez <frank@blueview.ai>
+
+Licensed under the PolyForm Noncommercial License 1.0.0 (see LICENSE).
+Commercial use requires a separate written license from
+The Blue View Group Corporation. Contact: frank@blueview.ai
+
+"Blue View", "Blue View OS", and the Blue View logo are trademarks of
+The Blue View Group Corporation. The license does not grant any right to use
+them except to leave the branding in this software unchanged.
+
+Third-party components
+----------------------
+
+hyprbars/hyprbars-bvos.patch
+  Patches to the hyprbars plugin from https://github.com/hyprwm/hyprland-plugins
+  (per-button alignment, button tooltips, and ending drags released over panels).
+  hyprland-plugins is Copyright (c) 2023, Hypr Development, licensed under the
+  BSD 3-Clause License (see hyprbars/LICENSE.hyprland-plugins). The patch is
+  distributed under that same license. The plugin source itself is downloaded
+  from upstream at install time.
+
+Fonts (downloaded at install time, not included): Geist, Manrope and Inter,
+  from Google Fonts, under the SIL Open Font License 1.1. The Windows package
+  bundles Geist, Manrope and Weather Icons (c) Erik Flowers, all under the
+  SIL Open Font License 1.1.
+
+omarchy/plugins/bvos.screensaver/SGP4.js
+  satellite.js v5.0.0, Copyright (C) 2013 Shashwat Kandadai and UCSC Jack Baskin
+  School of Engineering, MIT License (see LICENSE.satellite-js next to it).
+
+omarchy/plugins/bvos.screensaver/stars.json
+  Derived from the Yale Bright Star Catalogue, 5th Revised Edition
+  (Hoffleit & Warren, 1991; NASA/CDS catalog V/50), public domain.
+
+omarchy/plugins/bvos.screensaver/constellations.json
+  Constellation lines from d3-celestial, Copyright (c) 2015 Olaf Frohn,
+  BSD 3-Clause License (see LICENSE.d3-celestial next to it).
+
+Satellite orbital elements (fetched at runtime): CelesTrak (https://celestrak.org).
+
+Weather data (fetched at runtime): wttr.in and Open-Meteo (https://open-meteo.com,
+  CC BY 4.0 data). The Windows package finds its location with GeoJS
+  (https://www.geojs.io) unless a place is set.
+
+Windows 11 theme (windows/theme): the installer downloads and sets up these
+separate programs, which are not included and keep their own licenses:
+  Mica For Everyone (GPL-3.0), TranslucentTB (GPL-3.0), Windhawk (GPL-3.0),
+  and the Windhawk mod "Hide Titlebar Icon and Text" by darkthemer (MIT),
+  fetched from mods.windhawk.net.
